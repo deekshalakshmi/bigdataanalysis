@@ -1,0 +1,147 @@
+select u.gender, count(*) 
+from movierating r, user u
+where r.userid = u.id 
+group by gender; 
+
+select u.gender, count(*) 
+from movierating r, user u
+where r.userid = u.id 
+and r.rating = 5
+group by gender;
+
+select o.name, count(*)
+from movierating r, occupation o, user u
+where r.userid = u.id
+and o.id = u.occupationid
+and r.rating = 5
+group by o.name;
+
+select o.name, gender,  count(*) 
+from movierating r, occupation o, user u 
+where r.userid = u.id 
+and o.id = u.occupationid 
+and r.rating = 5 
+group by o.name, gender;
+
+select u.age, count(*) 
+from movierating r, user u
+where r.userid = u.id
+and r.rating = 5
+group by u.age;
+
+select o.name, u.age, count(*)    
+from user u, occupation o, movierating r 
+where r.userid = u.id
+and o.id = u.occupationid 
+and r.rating = 5 
+group by o.name, u.age;
+
+select u.age, o.name, u.gender, count(*)
+from movierating r, occupation o, user u
+where r.userid = u.id
+and o.id = u.occupationid
+and rating = 5 
+and age in (18 , 25) 
+group by u.age, o.name, u.gender;
+
+select m.year, u.age, count(*)
+from movie m, movierating r, user u
+where r.userid = u.id
+and r.movieid = m.id
+and rating = 5 
+group by m.year, u.age;
+
+select g.name, count(*)   
+from movierating r, genre g, moviegenre mg   
+where r.movieid = mg.movieid
+and mg.genreid = g.id 
+and r.rating = 5
+group by g.name;
+
+select g.name, u.gender, count(*)   
+from genre g, moviegenre mg, movierating r, user u
+where r.userid = u.id
+and r.movieid = mg.movieid
+and mg.genreid = g.id
+and rating = 5
+group by g.name, u.gender;
+
+select g.name, u.age, count(*) 
+from genre g, moviegenre mg, movierating r, user u 
+where r.userid = u.id 
+and r.movieid = mg.movieid 
+and mg.genreid = g.id 
+and rating = 5 
+group by g.name, u.age;
+
+select g.name, o.name, count(*) 
+from genre g, moviegenre mg, movierating r, occupation o, user u 
+where r.movieid = mg.movieid 
+and mg.genreid = g.id 
+and r.userid = u.id 
+and u.occupationid = o.id 
+and rating = 5 
+group by g.name, o.name;
+
+Create a movie table: 
+Create external table movie 	
+(Id INT, name STRING, year INT) 
+Row format delimited fields terminated by ’\t’
+Location ‘/user/kodicalk/movie’
+
+Create a movierating table: 
+Create external table movierating	
+(userid INT, movieid INT, rating INT) 
+Row format delimited fields terminated by ’\t’
+Location ‘/user/kodicalk/movierating’
+
+Create a user table: 
+Create external table user	
+(id INT, gender STRING, age INT, occupationid INT, zip INT) 
+Row format delimited fields terminated by ’\t’
+Location ‘/user/kodicalk/user’
+
+Create an occupation table: 
+Create external table occupation	
+(occupationid INT, name STRING) 
+Row format delimited fields terminated by ’\t’
+Location ‘/user/kodicalk/occupation’
+
+Insert overwrite directory ‘/user/kodicalk/userocc’ Select id, gender, age, name 
+From user join occupation on (user.occupationid = occupation.id);
+
+Create external table userocc 
+(id INT, gender STRING, age INT, name STRING) 
+Row format delimited 
+Fields terminated by ‘\1’
+Lines terminated by ‘\n’
+Stored as textfile location ‘/user/kodicalk/userocc’;
+
+dfs –cat /user/kodicalk/userocc
+
+Insert overwrite directory ‘/user/kodicalk/movieuser’ select movieid, id, rating, gender, age, name
+From movierating join userocc on (movierating.userid = user.id);
+
+Create external table movieuser 
+(movieid INT, id INT, rating INT, gender STRING, age INT, name STRING) 
+Row format delimited 
+Fields terminated by ‘\1’
+Lines terminated by ‘\n’
+Stored as textfile location ‘/user/kodicalk/movieuser’;
+
+Insert overwrite directory ‘/user/kodicalk/moviefinal’ select movieid, movieuser.id, rating, gender, age, movieuser.name
+From movie join movieuser on (movie.id = movieuser.movieid)
+Where movie.year > 1995;
+
+Create external table moviefinal 
+(movieid INT, id INT, rating INT, gender STRING, age INT, name STRING) 
+Row format delimited 
+Fields terminated by ‘\1’
+Lines terminated by ‘\n’
+Stored as textfile location ‘/user/kodicalk/moviefinal’;
+
+Hadoop fs –get /user/kodicalk/movieuser
+Hadoop fs –get /user/kodicalk/moviefinal
+Mv movieuser/00000_0 movieuser.csv
+Cat moviefinal.csv |tr ‘\1’ ‘,’ > moviefinal.csv
+Cat movieuser.csv |tr ‘\1’ ‘,’ > movieuser.csv
